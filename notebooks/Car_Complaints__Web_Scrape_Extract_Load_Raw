@@ -1,0 +1,161 @@
+from bs4 import BeautifulSoup
+import requests
+import time
+import pandas as pd
+from datetime import datetime
+import re
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+def fetch_page(url):
+    # Add headers to mimic browser request
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+    
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        logger.info(f"Successfully fetched {url}")
+        return response.text
+    except requests.RequestException as e:
+        logger.error(f"Error fetching {url}: {e}")
+        return None
+
+def parse_main_page(html):
+    soup = BeautifulSoup(html, 'html.parser')
+    # Find all manufacturer links
+    make_links = soup.select('div#mmMenu a[href^="/"]')
+    return [{'make': link.text.strip(), 'url': f"https://www.carcomplaints.com{link['href']}"} 
+            for link in make_links if link.text.strip()]
+
+def parse_make_page(html, make_name):
+    """Parse the make page to extract model information.
+    
+    Args:
+        html (str): The HTML content of the make page
+        make_name (str): The name of the make (e.g., 'Toyota')
+    """
+    soup = BeautifulSoup(html, 'html.parser')
+    # Find all model links in the three columns (c1, c2, c3)
+    model_links = soup.select('ul.column.bar li a')
+    
+    # Filter out duplicates and parse complaint counts
+    models = []
+    seen_urls = set()
+    
+    for link in model_links:
+        url = f"https://www.carcomplaints.com{link['href']}"
+        model_name = link.text.strip()
+        
+        # Get complaint count from sibling span
+        count_span = link.find_next_sibling('span', class_='count')
+        # Remove commas before converting to int
+        complaint_count = int(count_span.text.replace(',', '')) if count_span else 0
+        
+        # Skip duplicates and empty names
+        if url not in seen_urls and model_name and model_name != make_name:
+            models.append({
+                'model': model_name,
+                'url': url,
+                'complaint_count': complaint_count
+            })
+            seen_urls.add(url)
+            
+            logger.debug(f"Found model: {model_name} with {complaint_count} complaints")
+    
+    return models
+
+def parse_model_complaints(html):
+    soup = BeautifulSoup(html, 'html.parser')
+    complaints = []
+    
+    # Find all year sections
+    year_sections = soup.find_all('div', class_='year')
+    
+    for section in year_sections:
+        year_text = section.find('div', class_='header').text.strip()
+        year = int(re.search(r'\d{4}', year_text).group())
+        
+        if year >= 2010:
+            problems = section.find_all('div', class_='problem')
+            for problem in problems:
+                complaint = {
+                    'year': year,
+                    'category': problem.find('div', class_='category').text.strip(),
+                    'count': int(problem.find('div', class_='count').text.strip()),
+                    'description': problem.find('div', class_='description').text.strip()
+                }
+                complaints.append(complaint)
+    
+    return complaints
+
+def main():
+    all_complaints = []
+    base_url = 'https://www.carcomplaints.com/'
+    
+    # Get main page
+    html = fetch_page(base_url)
+    makes = parse_main_page(html)
+    
+    for make in makes[:2]:  # Limit to 2 makes for testing
+        logger.info(f"Processing make: {make['make']}")
+        time.sleep(2)  # Respect rate limits
+        
+        # Get make page
+        make_html = fetch_page(make['url'])
+        models = parse_make_page(make_html, make['make'])
+        
+        for model in models:
+            print(f"Processing model: {model['model']}")
+            time.sleep(2)  # Respect rate limits
+            
+            # Get model complaints
+            model_html = fetch_page(model['url'])
+            complaints = parse_model_complaints(model_html)
+            
+            for complaint in complaints:
+                complaint_data = {
+                    'make': make['make'],
+                    'model': model['model'],
+                    **complaint
+                }
+                all_complaints.append(complaint_data)
+    
+    # Convert to DataFrame and save
+    df = pd.DataFrame(all_complaints)
+    df.to_csv(f'car_complaints_{datetime.now().strftime("%Y%m%d")}.csv', index=False)
+    return df
+
+def test_scraper():
+    # Test with a single make (Toyota)
+    make_name = 'Toyota'
+    test_url = f'https://www.carcomplaints.com/{make_name}/'
+    
+    logger.info("Starting test scrape...")
+    html = fetch_page(test_url)
+    
+    if html:
+        soup = BeautifulSoup(html, 'html.parser')
+        models = parse_make_page(html, make_name)
+        
+        logger.info(f"Found {len(models)} unique models")
+        # Show first 5 models as sample
+        for model in models[:5]:
+            logger.info(f"Model: {model['model']} - URL: {model['url']}")
+            
+        return len(models) > 0
+    
+    return False
+
+if __name__ == "__main__":
+    # Increase logging level temporarily
+    logging.getLogger().setLevel(logging.DEBUG)
+    success = test_scraper()
+    if success:
+        logger.info("Test completed successfully!")
+    else:
+        logger.error("Test failed!")
