@@ -4,6 +4,10 @@ import time
 import pandas as pd
 from datetime import datetime
 import logging
+from sqlalchemy import create_engine
+import os
+from dotenv import load_dotenv
+
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -22,6 +26,16 @@ def fetch_page(url):
         return None
 
 def parse_make_page(html, make_name):
+    """
+    Parses the HTML content of a car make page to extract model information and complaint counts.
+    Args:
+        html (str): The HTML content of the car make page.
+        make_name (str): The name of the car make to exclude from the model list.
+    Returns:
+        list[dict]: A list of dictionaries, where each dictionary contains:
+            - 'model' (str): The name of the car model.
+            - 'complaint_count' (int): The number of complaints associated with the model.
+    """
     soup = BeautifulSoup(html, 'html.parser')
     model_links = soup.select('ul.column.bar li a')
     models = []
@@ -43,7 +57,7 @@ def parse_make_page(html, make_name):
     return models
 
 def fetch_all_makes_complaints():
-    makes = [
+    ''' makes = [
         'Acura', 'Chrysler', 'Hyundai', 'Mazda', 'Oldsmobile', 'Scion',
         'Audi', 'Dodge', 'Infiniti', 'Mercedes-Benz', 'Plymouth', 'Subaru',
         'BMW', 'Ford', 'Jeep', 'Mercury', 'Pontiac', 'Tesla',
@@ -51,7 +65,24 @@ def fetch_all_makes_complaints():
         'Cadillac', 'GMC', 'Lexus', 'Mitsubishi', 'Ram', 'Volvo',
         'Chevrolet', 'Honda', 'Lincoln', 'Nissan', 'Rivian', 'VW'
     ]
+    '''
+        # Load environment variables
+    load_dotenv()
     
+    # PostgreSQL connection details
+    pg_user = os.environ['PG_USER']
+    pg_password = os.environ['PG_PASSWORD']
+    pg_host = os.environ['PG_HOST']
+    pg_db = os.environ['PG_DB']
+    
+    # Create PostgreSQL connection string and engine
+    pg_conn_str = f'postgresql+psycopg2://{pg_user}:{pg_password}@{pg_host}/{pg_db}'
+    pg_engine = create_engine(pg_conn_str)
+
+    makes = [
+         'Toyota'
+    ]
+
     all_models_data = []
     
     for make_name in makes:
@@ -63,18 +94,30 @@ def fetch_all_makes_complaints():
                 all_models_data.append({
                     'Make': make_name,
                     'Model': model['model'],
-                    'Complaint count': model['complaint_count']
+                    'Complaint count': model['complaint_count'],
+                    'extract_date': datetime.now().date()
                 })
         else:
             logger.error(f"Failed to fetch data for {make_name}")
-        time.sleep(2)  # Rate limiting
+        time.sleep(2) 
     
     df = pd.DataFrame(all_models_data)
-    output_file = f'all_makes_complaints_{datetime.now().strftime("%Y%m%d")}.csv'
-    df.to_csv(output_file, index=False)
-    logger.info(f"\nData saved to {output_file}")
+    
+    # Write to PostgreSQL
+    try:
+        df.to_sql('car_complaints', pg_engine, schema='raw', 
+                  if_exists='append', index=False)
+        logger.info("Data successfully written to PostgreSQL database")
+    except Exception as e:
+        logger.error(f"Error writing to database: {e}")
+        # Save to CSV as backup
+        output_file = f'toyota_complaints_{datetime.now().strftime("%Y%m%d")}.csv'
+        df.to_csv(output_file, index=False)
+        logger.info(f"Backup data saved to {output_file}")
     
     return df
+
+
 
 if __name__ == "__main__":
     df = fetch_all_makes_complaints()
