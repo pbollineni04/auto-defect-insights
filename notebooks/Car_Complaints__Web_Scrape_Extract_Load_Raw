@@ -105,7 +105,7 @@ def fetch_all_makes_complaints():
     
     # Write to PostgreSQL
     try:
-        df.to_sql('car_complaints', pg_engine, schema='raw', 
+        df.to_sql('car_complaints', pg_engine, schema='sql_project', 
                   if_exists='append', index=False)
         logger.info("Data successfully written to PostgreSQL database")
     except Exception as e:

@@ -100,7 +100,7 @@ def main():
             detail_df.to_sql(
                 'nhtsa_recalls_detail',
                 pg_engine,
-                schema='raw',
+                schema='sql_project',
                 if_exists='append',
                 index=False
             )
@@ -117,7 +117,7 @@ def main():
         summary_df.to_sql(
             'nhtsa_recalls_summary',
             pg_engine,
-            schema='raw',
+            schema='sql_project',
             if_exists='append',
             index=False
         )
