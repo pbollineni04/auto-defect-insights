@@ -36,9 +36,6 @@ Sanmina’s focus on product quality and cross-functional analytics aligns perfe
 - [`CarComplaints_Web_Scrape_SQL_Analysis.ipynb`](notebooks/CarComplaints_Web_Scrape_SQL_Analysis.ipynb)  
   Analyzes consumer complaint volume by model, identifying which cars generate the most dissatisfaction.
 
-- [`export_to_csv.py`](reports/export_to_csv.py)  
-  Exports cleaned SQL query results to CSV for visualization in Excel.
-
 ## Future Improvements  
 
 - Automate the full pipeline using **dbt** or **Airflow**, with scheduled refreshes and version-controlled SQL models.  
