@@ -38,6 +38,7 @@ Sanmina’s focus on product quality and cross-functional analytics aligns perfe
 
 ## Future Improvements  
 
-- Automate the full pipeline using **dbt** or **Airflow**, with scheduled refreshes and version-controlled SQL models.  
+- Automate the full pipeline using **dbt**, with scheduled refreshes and version-controlled SQL models.  
 - Integrate **Looker Studio** or **Power BI** for real-time dashboards instead of static Excel charts.
+- Scrape more data from CarComplaints.com.
 
