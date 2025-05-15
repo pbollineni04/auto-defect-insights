@@ -25,7 +25,7 @@ Sanmina’s focus on product quality and cross-functional analytics aligns perfe
 - [CarComplaints.com](https://www.carcomplaints.com/)
 
 **Key Characteristics:**  
-- **NHTSA API**: JSON, 2000–2025 recall data by make, model, year, component  
+- **NHTSA API**: JSON, recall data by make, model, year, component  
 - **CarComplaints.com**: HTML-scraped complaint counts by vehicle model
 
 ## Notebooks / Python Scripts  
